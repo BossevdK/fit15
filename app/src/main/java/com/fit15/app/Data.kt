@@ -36,8 +36,20 @@ class Workout(
     val exercises: List<Exercise>,
     val rounds: Int = 3,
 ) {
+    /** Voor de filters in het tabblad Workouts. */
+    val category: String get() = Categories.of(id)
+
     /** Elke oefening duurt (werk + rust) = 60 seconden, dus minuten = oefeningen x rondes. */
     val minutes: Int get() = exercises.size * rounds
+}
+
+object Categories {
+    val filters = listOf("All", "Full body", "Upper body", "Legs", "Core", "Cardio", "7 min")
+    private val map = mapOf(
+        "full" to "Full body", "full2" to "Full body", "upper" to "Upper body", "legs" to "Legs", "glute" to "Legs",
+        "core" to "Core", "core2" to "Core", "cardio" to "Cardio", "quickfull" to "7 min", "quickabs" to "7 min",
+    )
+    fun of(id: String) = map[id] ?: "Other"
 }
 
 /** Werktijd, rusttijd en welke variant (-1 makkelijker, 0 normaal, +1 zwaarder). */
@@ -443,6 +455,14 @@ object Exercises {
     )
 
     val warmUp: List<Exercise> = listOf(armCircles, marchInPlace, halfSquat)
+
+    /** Alle oefeningen voor de bibliotheek, op naam gesorteerd. */
+    val library: List<Exercise> = listOf(
+        squat, halfSquat, jumpSquat, pushUp, kneePushUp, declinePushUp, reverseLunge, plank, plankLegLift,
+        mountainClimber, slowClimber, gluteBridge, singleLegBridge, crunch, legRaise, bentKneeRaise, superman,
+        jumpingJack, highKnees, wallSit, calfRaise, singleLegCalf, tricepDip, bicycleCrunch, flutterKicks,
+        donkeyKick, birdDog, armCircles, marchInPlace,
+    ).sortedBy { it.name }
 }
 
 class Week(val title: String, val intensity: Intensity, val sessions: List<String>)

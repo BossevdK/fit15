@@ -38,6 +38,8 @@ class MainActivity : ComponentActivity() {
 sealed interface Screen {
     data object Home : Screen
     data object Muscles : Screen
+    data object Settings : Screen
+    data object Library : Screen
     data class Detail(val workout: Workout, val fromProgram: Boolean) : Screen
     data class Play(val workout: Workout, val intensity: Intensity, val warmUp: Boolean, val fromProgram: Boolean) : Screen
     data class Done(val workout: Workout, val seconds: Int, val fromProgram: Boolean) : Screen
@@ -47,6 +49,7 @@ sealed interface Screen {
 fun App(store: Store) {
     val ctx = LocalContext.current
     var screen by remember { mutableStateOf<Screen>(Screen.Home) }
+    var tab by remember { mutableStateOf(Tab.TODAY) }
     var level by remember { mutableStateOf(store.level) }
     var warmUp by remember { mutableStateOf(store.warmUp) }
     var programDone by remember { mutableIntStateOf(store.programDone) }
@@ -61,7 +64,9 @@ fun App(store: Store) {
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxSize().systemBarsPadding()) {
             when (val s = screen) {
-                Screen.Home -> HomeScreen(
+                Screen.Home -> HomeRoot(
+                    tab = tab,
+                    onTab = { tab = it },
                     store = store,
                     history = remember(refresh) { store.history() },
                     programDone = programDone,
@@ -70,7 +75,17 @@ fun App(store: Store) {
                     onProgram = { Program.next(programDone)?.let { n -> screen = Screen.Detail(n.workout, true) } },
                     onRestartProgram = { store.programDone = 0; programDone = 0 },
                     onMuscles = { screen = Screen.Muscles },
+                    onSettings = { screen = Screen.Settings },
+                    onLibrary = { screen = Screen.Library },
                 )
+                Screen.Settings -> {
+                    BackHandler { screen = Screen.Home }
+                    SettingsScreen(store) { screen = Screen.Home }
+                }
+                Screen.Library -> {
+                    BackHandler { screen = Screen.Home }
+                    LibraryScreen { screen = Screen.Home }
+                }
                 Screen.Muscles -> {
                     BackHandler { screen = Screen.Home }
                     MusclesScreen(history = remember(refresh) { store.history() }, onBack = { screen = Screen.Home })
@@ -92,6 +107,7 @@ fun App(store: Store) {
                     workout = s.workout,
                     intensity = s.intensity,
                     warmUp = s.warmUp,
+                    prefs = PlayPrefs(store.soundOn, store.voiceOn, store.vibrateOn),
                     onQuit = { screen = Screen.Detail(s.workout, s.fromProgram) },
                     onFinish = { seconds ->
                         store.add(s.workout.id, (seconds + 30) / 60)

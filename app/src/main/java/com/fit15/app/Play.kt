@@ -3,6 +3,11 @@ package com.fit15.app
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.SystemClock
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.speech.tts.TextToSpeech
+import androidx.compose.ui.platform.LocalContext
+import java.util.Locale
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -94,13 +99,18 @@ private fun buildPlan(w: Workout, intensity: Intensity, warmUp: Boolean): List<S
     return plan
 }
 
+/** Geluid, stem en trilling zoals ingesteld bij Settings. */
+class PlayPrefs(val sound: Boolean, val voice: Boolean, val vibrate: Boolean)
+
 @Composable
-fun PlayScreen(workout: Workout, intensity: Intensity, warmUp: Boolean, onQuit: () -> Unit, onFinish: (seconds: Int) -> Unit) {
+fun PlayScreen(workout: Workout, intensity: Intensity, warmUp: Boolean, prefs: PlayPrefs, onQuit: () -> Unit, onFinish: (seconds: Int) -> Unit) {
     val plan = remember { buildPlan(workout, intensity, warmUp) }
     var idx by remember { mutableIntStateOf(0) }
     var remainingMs by remember { mutableLongStateOf(plan[0].sec * 1000L) }
     var paused by remember { mutableStateOf(false) }
     var confirmQuit by remember { mutableStateOf(false) }
+    var extraMs by remember { mutableLongStateOf(0L) }
+    val ctx = LocalContext.current
     val totalSec = remember { plan.sumOf { it.sec } - READY_SEC }
 
     // scherm aan houden tijdens de workout
@@ -112,13 +122,44 @@ fun PlayScreen(workout: Workout, intensity: Intensity, warmUp: Boolean, onQuit: 
     val tone = remember { runCatching { ToneGenerator(AudioManager.STREAM_MUSIC, 80) }.getOrNull() }
     DisposableEffect(Unit) { onDispose { tone?.release() } }
 
+    val vib = remember { ctx.getSystemService(Vibrator::class.java) }
+    fun buzz(ms: Long) {
+        if (prefs.vibrate) runCatching { vib?.vibrate(VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE)) }
+    }
+    val tts = remember {
+        var engine: TextToSpeech? = null
+        if (prefs.voice) {
+            engine = runCatching {
+                TextToSpeech(ctx) { status -> if (status == TextToSpeech.SUCCESS) engine?.language = Locale.ENGLISH }
+            }.getOrNull()
+        }
+        engine
+    }
+    DisposableEffect(Unit) { onDispose { tts?.shutdown() } }
+    fun announce(s: Seg) {
+        val text = when (s.kind) {
+            Kind.WORK -> s.ex.name
+            Kind.REST -> "Rest. Next, ${s.ex.name}"
+            Kind.WARM -> "Warm-up, ${s.ex.name}"
+            Kind.READY -> "Get ready. ${s.ex.name}"
+        }
+        runCatching { tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "fit15") }
+    }
+    LaunchedEffect(Unit) {
+        delay(900)
+        announce(plan[0])
+    }
+
     BackHandler { paused = true; confirmQuit = true }
 
     fun advance() {
         if (idx + 1 < plan.size) {
             idx++
             remainingMs = plan[idx].sec * 1000L
-            tone?.startTone(ToneGenerator.TONE_PROP_BEEP2, 250)
+            extraMs = 0L
+            if (prefs.sound) tone?.startTone(ToneGenerator.TONE_PROP_BEEP2, 250)
+            buzz(250)
+            announce(plan[idx])
         } else {
             onFinish(totalSec)
         }
@@ -136,7 +177,10 @@ fun PlayScreen(workout: Workout, intensity: Intensity, warmUp: Boolean, onQuit: 
             val whole = ceil(remainingMs / 1000.0).toInt()
             if (whole != lastWhole) {
                 lastWhole = whole
-                if (whole in 1..3) tone?.startTone(ToneGenerator.TONE_PROP_BEEP, 120)
+                if (whole in 1..3) {
+                    if (prefs.sound) tone?.startTone(ToneGenerator.TONE_PROP_BEEP, 120)
+                    buzz(60)
+                }
             }
         }
         advance()
@@ -166,7 +210,7 @@ fun PlayScreen(workout: Workout, intensity: Intensity, warmUp: Boolean, onQuit: 
         Kind.READY -> "Get ready"
     }
     val seconds = ceil(remainingMs / 1000.0).toInt().coerceAtLeast(0)
-    val segProgress = (remainingMs.toFloat() / (seg.sec * 1000f)).coerceIn(0f, 1f)
+    val segProgress = (remainingMs.toFloat() / (seg.sec * 1000f + extraMs)).coerceIn(0f, 1f)
     val workDone = plan.take(idx).count { it.kind == Kind.WORK }
     val workTotal = workout.exercises.size * workout.rounds
 
@@ -268,6 +312,13 @@ fun PlayScreen(workout: Workout, intensity: Intensity, warmUp: Boolean, onQuit: 
                 modifier = Modifier.weight(1f).height(56.dp),
                 shape = RoundedCornerShape(16.dp),
             ) { Text(if (paused) "Resume" else "Pause", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+            if (seg.kind == Kind.REST) {
+                OutlinedButton(
+                    onClick = { remainingMs += 20_000L; extraMs += 20_000L },
+                    modifier = Modifier.weight(1f).height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                ) { Text("+20 s", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+            }
             OutlinedButton(
                 onClick = { advance() },
                 modifier = Modifier.weight(1f).height(56.dp),

@@ -58,15 +58,15 @@ import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
 
-private val ScreenPad = 20.dp
+internal val ScreenPad = 20.dp
 
 @Composable
-private fun Rule() {
+internal fun Rule() {
     Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
 }
 
 @Composable
-private fun SignalButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+internal fun SignalButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Button(
         onClick = onClick,
         shape = RoundedCornerShape(10.dp),
@@ -76,7 +76,7 @@ private fun SignalButton(text: String, modifier: Modifier = Modifier, onClick: (
 }
 
 @Composable
-private fun BackLink(onBack: () -> Unit) {
+internal fun BackLink(onBack: () -> Unit) {
     Text(
         "‹ Back",
         style = Type.row,
@@ -86,45 +86,13 @@ private fun BackLink(onBack: () -> Unit) {
 }
 
 @Composable
-fun HomeScreen(
-    store: Store,
-    history: List<Store.Entry>,
-    programDone: Int,
-    update: UpdateInfo?,
-    onOpen: (Workout) -> Unit,
-    onProgram: () -> Unit,
-    onRestartProgram: () -> Unit,
-    onMuscles: () -> Unit,
-) {
-    val streak = streakOf(history)
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = ScreenPad, end = ScreenPad, top = 8.dp, bottom = 32.dp)) {
-        if (update != null) item { UpdateBanner(update) }
-        item {
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 16.dp), verticalAlignment = Alignment.Bottom) {
-                Text("Fit15", style = Type.title, color = accentText(), modifier = Modifier.weight(1f))
-                Text("$streak", style = Type.number)
-                Text(" day streak", style = Type.small, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 3.dp))
-            }
-        }
-        item { Hero(programDone, onProgram, onRestartProgram) }
-        item { WeekStrip(history) }
-        item { Spacer(Modifier.height(8.dp)); Rule(); MusclesRow(history, onMuscles); Rule() }
-        item { SectionTitle("Workouts") }
-        items(Workouts.main) { w -> WorkoutRow(w) { onOpen(w) } }
-        item { SectionTitle("When you only have seven minutes") }
-        items(Workouts.quick) { w -> WorkoutRow(w) { onOpen(w) } }
-        item { Spacer(Modifier.height(24.dp)); ReminderRow(store) }
-    }
-}
-
-@Composable
-private fun SectionTitle(text: String) {
+internal fun SectionTitle(text: String) {
     Text(text, style = Type.section, modifier = Modifier.padding(top = 28.dp, bottom = 6.dp))
     Rule()
 }
 
 @Composable
-private fun UpdateBanner(info: UpdateInfo) {
+internal fun UpdateBanner(info: UpdateInfo) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var progress by remember { mutableStateOf<Float?>(null) }
@@ -165,7 +133,7 @@ private fun UpdateBanner(info: UpdateInfo) {
 
 /** Het ene grote blok: de training van vandaag. */
 @Composable
-private fun Hero(done: Int, onStart: () -> Unit, onRestart: () -> Unit) {
+internal fun Hero(done: Int, onStart: () -> Unit, onRestart: () -> Unit) {
     val next = Program.next(done)
     Column(
         Modifier
@@ -207,7 +175,7 @@ private fun Hero(done: Int, onStart: () -> Unit, onRestart: () -> Unit) {
 }
 
 @Composable
-private fun WeekStrip(history: List<Store.Entry>) {
+internal fun WeekStrip(history: List<Store.Entry>) {
     val days = history.map { it.day }.toSet()
     val today = LocalDate.now()
     val total = history.size
@@ -252,7 +220,7 @@ private fun WeekStrip(history: List<Store.Entry>) {
 }
 
 @Composable
-private fun MusclesRow(history: List<Store.Entry>, onClick: () -> Unit) {
+internal fun MusclesRow(history: List<Store.Entry>, onClick: () -> Unit) {
     val sets = weeklySets(history)
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
         BodyMap(sets, height = 110.dp)
@@ -266,7 +234,7 @@ private fun MusclesRow(history: List<Store.Entry>, onClick: () -> Unit) {
 }
 
 @Composable
-private fun WorkoutRow(w: Workout, onClick: () -> Unit) {
+internal fun WorkoutRow(w: Workout, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(w.name, style = Type.row)
@@ -281,7 +249,7 @@ private fun WorkoutRow(w: Workout, onClick: () -> Unit) {
 }
 
 @Composable
-private fun ReminderRow(store: Store) {
+internal fun ReminderRow(store: Store) {
     val ctx = LocalContext.current
     var on by remember { mutableStateOf(store.reminderOn) }
     var hour by remember { mutableIntStateOf(store.reminderHour) }
@@ -352,7 +320,7 @@ private fun ReminderRow(store: Store) {
 }
 
 @Composable
-private fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+internal fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(3.dp),
     ) {
@@ -423,7 +391,7 @@ fun DetailScreen(
 }
 
 @Composable
-private fun ExerciseRow(base: Exercise, ex: Exercise) {
+internal fun ExerciseRow(base: Exercise, ex: Exercise) {
     var open by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().clickable { open = !open }.padding(vertical = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {

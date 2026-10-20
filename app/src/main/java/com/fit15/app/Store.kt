@@ -46,6 +46,31 @@ class Store(context: Context) {
             prefs.edit().putInt("reminderMinute", value).apply()
         }
 
+    var soundOn: Boolean
+        get() = prefs.getBoolean("soundOn", true)
+        set(value) {
+            prefs.edit().putBoolean("soundOn", value).apply()
+        }
+
+    var voiceOn: Boolean
+        get() = prefs.getBoolean("voiceOn", false)
+        set(value) {
+            prefs.edit().putBoolean("voiceOn", value).apply()
+        }
+
+    var vibrateOn: Boolean
+        get() = prefs.getBoolean("vibrateOn", true)
+        set(value) {
+            prefs.edit().putBoolean("vibrateOn", value).apply()
+        }
+
+    /** Hoeveel trainingen je per week wilt doen. */
+    var weeklyGoal: Int
+        get() = prefs.getInt("weeklyGoal", 3)
+        set(value) {
+            prefs.edit().putInt("weeklyGoal", value.coerceIn(1, 7)).apply()
+        }
+
     fun history(): List<Entry> =
         (prefs.getString("history", "") ?: "").split(";").mapNotNull { s ->
             val p = s.split("|")
@@ -85,4 +110,24 @@ fun weeklySets(history: List<Store.Entry>): Map<Muscle, Float> {
         }
     }
     return result
+}
+
+/** Langste reeks dagen op rij met minstens één workout. */
+fun bestStreak(history: List<Store.Entry>): Int {
+    val days = history.map { it.day }.toSortedSet().toList()
+    var best = 0
+    var run = 0
+    var prev = Long.MIN_VALUE
+    for (d in days) {
+        run = if (d == prev + 1) run + 1 else 1
+        if (run > best) best = run
+        prev = d
+    }
+    return best
+}
+
+/** Aantal workouts sinds maandag van deze week. */
+fun thisWeekCount(history: List<Store.Entry>): Int {
+    val monday = LocalDate.now().with(java.time.DayOfWeek.MONDAY).toEpochDay()
+    return history.count { it.day >= monday }
 }
