@@ -6,3 +6,4 @@ keystore.properties
 sleutel/
 *.apk
 tools/preview.html
+tools/body.html
