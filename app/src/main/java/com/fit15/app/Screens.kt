@@ -6,7 +6,10 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,6 +28,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -33,7 +37,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -43,6 +50,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -57,9 +68,11 @@ import java.util.Locale
 
 @Composable
 private fun Figure(ex: Exercise, modifier: Modifier, playing: Boolean = true) {
-    val c = MaterialTheme.colorScheme
-    ExerciseFigure(ex, modifier, body = c.onSurface, ground = c.onSurface.copy(alpha = 0.3f), playing = playing)
+    FigureStage(ex, modifier, playing)
 }
+
+@Composable
+private fun cardBorder() = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
 
 @Composable
 fun HomeScreen(
@@ -206,7 +219,8 @@ private fun WeekStrip(history: List<Store.Entry>) {
                     Modifier
                         .size(34.dp)
                         .clip(CircleShape)
-                        .background(if (done) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
+                        .background(if (done) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+                        .then(if (i == 0) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape) else Modifier),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
@@ -224,52 +238,60 @@ private fun WeekStrip(history: List<Store.Entry>) {
 @Composable
 private fun ProgramCard(done: Int, onStart: () -> Unit, onRestart: () -> Unit) {
     val next = Program.next(done)
+    val c = MaterialTheme.colorScheme
+    val dark = isSystemInDarkTheme()
+    val end = if (dark) Color(0xFFE5703F) else lerp(c.primary, Color.Black, 0.25f)
+    val fg = c.onPrimary
     Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Column(Modifier.padding(16.dp)) {
-            Text(Program.NAME, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Column(Modifier.background(Brush.linearGradient(listOf(c.primary, end))).padding(20.dp)) {
+            Text(Program.NAME.uppercase(), fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, color = fg.copy(alpha = 0.8f))
             if (next != null) {
                 Text(
                     "Week ${next.weekIndex + 1} of ${Program.weeks.size}: ${next.week.title}",
-                    fontSize = 20.sp,
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    color = fg,
+                    modifier = Modifier.padding(top = 2.dp),
                 )
                 Text(
                     "Session ${next.sessionIndex + 1} of ${next.week.sessions.size}: ${next.workout.name} · ${next.week.intensity.hint}",
                     fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    color = fg,
                     modifier = Modifier.padding(top = 2.dp),
                 )
                 LinearProgressIndicator(
                     progress = { done.toFloat() / Program.total },
-                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp).height(6.dp).clip(RoundedCornerShape(3.dp)),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(6.dp).clip(RoundedCornerShape(3.dp)),
+                    color = fg,
+                    trackColor = fg.copy(alpha = 0.3f),
                 )
                 Text(
                     "$done of ${Program.total} sessions done. Train 3 times a week with a rest day in between.",
                     fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    modifier = Modifier.padding(top = 4.dp),
+                    color = fg.copy(alpha = 0.9f),
+                    modifier = Modifier.padding(top = 6.dp),
                 )
-                Button(onClick = onStart, modifier = Modifier.padding(top = 10.dp)) { Text("Start today's session") }
+                Button(
+                    onClick = onStart,
+                    colors = ButtonDefaults.buttonColors(containerColor = fg, contentColor = c.primary),
+                    modifier = Modifier.padding(top = 12.dp),
+                ) { Text("Start today's session", fontWeight = FontWeight.Bold) }
             } else {
-                Text(
-                    "Program complete!",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                )
+                Text("Program complete!", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = fg, modifier = Modifier.padding(top = 2.dp))
                 Text(
                     "You finished all ${Program.total} sessions. Start again and aim for cleaner, slower reps.",
                     fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    color = fg,
                 )
-                Button(onClick = onRestart, modifier = Modifier.padding(top = 10.dp)) { Text("Start again") }
+                Button(
+                    onClick = onRestart,
+                    colors = ButtonDefaults.buttonColors(containerColor = fg, contentColor = c.primary),
+                    modifier = Modifier.padding(top = 12.dp),
+                ) { Text("Start again", fontWeight = FontWeight.Bold) }
             }
         }
     }
@@ -281,7 +303,8 @@ private fun MusclesCard(history: List<Store.Entry>, onClick: () -> Unit) {
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = cardBorder(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
     ) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -306,7 +329,8 @@ private fun WorkoutCard(w: Workout, onClick: () -> Unit) {
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = cardBorder(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
     ) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -318,10 +342,12 @@ private fun WorkoutCard(w: Workout, onClick: () -> Unit) {
                 Text(
                     "${w.minutes} min · ${w.exercises.size} exercises" + if (w.rounds > 1) " · ${w.rounds} rounds" else "",
                     fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }
+            Text("›", fontSize = 28.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -352,7 +378,8 @@ private fun ReminderCard(store: Store) {
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = cardBorder(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(14.dp)) {
@@ -467,7 +494,8 @@ private fun ExerciseRow(base: Exercise, ex: Exercise) {
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        border = cardBorder(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = Modifier.fillMaxWidth().clickable { open = !open },
     ) {
         Column(Modifier.padding(12.dp)) {
@@ -508,10 +536,17 @@ fun DoneScreen(workout: Workout, seconds: Int, streak: Int, note: String?, onDon
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Box(
-            Modifier.size(96.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
-            contentAlignment = Alignment.Center,
-        ) { Text("✓", fontSize = 52.sp, color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold) }
+        val pop = remember { Animatable(0.6f) }
+        LaunchedEffect(Unit) { pop.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = 300f)) }
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.graphicsLayer { scaleX = pop.value; scaleY = pop.value }) {
+            Box(Modifier.size(130.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)))
+            Box(
+                Modifier.size(100.dp).clip(CircleShape).background(
+                    Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary, lerp(MaterialTheme.colorScheme.primary, Color.Black, 0.2f))),
+                ),
+                contentAlignment = Alignment.Center,
+            ) { Text("✓", fontSize = 54.sp, color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold) }
+        }
         Spacer(Modifier.height(24.dp))
         Text("Workout complete!", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
         Text(workout.name, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))

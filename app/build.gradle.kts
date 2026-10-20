@@ -13,8 +13,8 @@ android {
         applicationId = "com.fit15.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
     }
     // Eigen sleutel (staat in keystore.properties, die niet in git komt). Zonder dat bestand valt release terug op de testsleutel.
     val ksProps = Properties().apply {

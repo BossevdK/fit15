@@ -4,7 +4,20 @@ import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.SystemClock
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -81,8 +94,6 @@ private fun buildPlan(w: Workout, intensity: Intensity, warmUp: Boolean): List<S
     return plan
 }
 
-private val RestColor = Color(0xFF1B8A7A)
-
 @Composable
 fun PlayScreen(workout: Workout, intensity: Intensity, warmUp: Boolean, onQuit: () -> Unit, onFinish: (seconds: Int) -> Unit) {
     val plan = remember { buildPlan(workout, intensity, warmUp) }
@@ -133,11 +144,20 @@ fun PlayScreen(workout: Workout, intensity: Intensity, warmUp: Boolean, onQuit: 
 
     val seg = plan[idx]
     val c = MaterialTheme.colorScheme
+    val dark = isSystemInDarkTheme()
+    // elke fase heeft een eigen kleurenpaar met genoeg contrast, in licht en donker
     val phaseColor = when (seg.kind) {
-        Kind.WORK -> c.primary
-        Kind.REST -> RestColor
-        Kind.WARM -> Color(0xFFB07A00)
-        Kind.READY -> c.onSurfaceVariant
+        Kind.WORK -> if (dark) Color(0xFFFF8A5C) else Color(0xFFD63D00)
+        Kind.REST -> if (dark) Color(0xFF4CC4B0) else Color(0xFF14786A)
+        Kind.WARM -> if (dark) Color(0xFFF2B84B) else Color(0xFF8F6100)
+        Kind.READY -> if (dark) Color(0xFFCDBFB4) else Color(0xFF65544A)
+    }
+    val onPhase = when {
+        !dark -> Color.White
+        seg.kind == Kind.READY -> Color(0xFF1A1210)
+        seg.kind == Kind.WORK -> Color(0xFF2B1000)
+        seg.kind == Kind.REST -> Color(0xFF00201B)
+        else -> Color(0xFF2A1D00)
     }
     val phaseLabel = when (seg.kind) {
         Kind.WORK -> "WORK"
@@ -147,13 +167,25 @@ fun PlayScreen(workout: Workout, intensity: Intensity, warmUp: Boolean, onQuit: 
     }
     val seconds = ceil(remainingMs / 1000.0).toInt().coerceAtLeast(0)
     val segProgress = (remainingMs.toFloat() / (seg.sec * 1000f)).coerceIn(0f, 1f)
-    val before = if (idx == 0) 0 else plan.take(idx).sumOf { it.sec } - READY_SEC
-    val into = if (seg.kind == Kind.READY) 0 else (seg.sec - seconds).coerceAtLeast(0)
-    val overall = ((before + into).toFloat() / totalSec).coerceIn(0f, 1f)
+    val workDone = plan.take(idx).count { it.kind == Kind.WORK }
+    val workTotal = workout.exercises.size * workout.rounds
 
-    Column(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    val tint by animateColorAsState(lerp(c.background, phaseColor, 0.10f), tween(400), label = "tint")
+    val pop = remember { Animatable(1f) }
+    LaunchedEffect(idx) {
+        pop.snapTo(1.08f)
+        pop.animateTo(1f, spring(dampingRatio = 0.5f))
+    }
+    val digitScale by animateFloatAsState(if (seconds in 1..3 && seg.kind != Kind.READY) 1.15f else 1f, label = "digits")
+
+    Column(
+        Modifier.fillMaxSize().background(tint).padding(horizontal = 20.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = { paused = true; confirmQuit = true }) { Text("✕ Stop", fontSize = 15.sp) }
+            TextButton(onClick = { paused = true; confirmQuit = true }, modifier = Modifier.height(48.dp)) {
+                Text("✕ Stop", fontSize = 15.sp)
+            }
             Spacer(Modifier.weight(1f))
             if (seg.kind == Kind.WARM) {
                 Text("Warm-up ${seg.exNo}/${Exercises.warmUp.size}", fontSize = 14.sp, color = c.onSurfaceVariant)
@@ -165,31 +197,28 @@ fun PlayScreen(workout: Workout, intensity: Intensity, warmUp: Boolean, onQuit: 
                 )
             }
         }
-        LinearProgressIndicator(
-            progress = { overall },
-            modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
-            color = c.primary,
-            trackColor = c.surfaceVariant,
-        )
+        // een streepje per oefening
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            repeat(workTotal) { i ->
+                Box(
+                    Modifier.weight(1f).height(5.dp).clip(CircleShape)
+                        .background(if (i < workDone) c.primary else c.onSurface.copy(alpha = 0.12f)),
+                )
+            }
+        }
 
         Spacer(Modifier.height(12.dp))
         Text(
             phaseLabel,
-            color = Color.White,
+            color = onPhase,
             fontWeight = FontWeight.ExtraBold,
             fontSize = 14.sp,
             modifier = Modifier.clip(RoundedCornerShape(50)).background(phaseColor).padding(horizontal = 16.dp, vertical = 5.dp),
         )
 
-        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-            ExerciseFigure(
-                seg.ex,
-                Modifier.fillMaxWidth().height(230.dp),
-                body = c.onSurface,
-                ground = c.onSurface.copy(alpha = 0.3f),
-                playing = !paused,
-            )
-        }
+        Spacer(Modifier.height(10.dp))
+        FigureStage(seg.ex, Modifier.weight(1f).fillMaxWidth(), playing = !paused)
+        Spacer(Modifier.height(10.dp))
 
         if (seg.kind == Kind.REST || seg.kind == Kind.READY) {
             Text("Next up", fontSize = 13.sp, color = c.onSurfaceVariant)
@@ -200,32 +229,51 @@ fun PlayScreen(workout: Workout, intensity: Intensity, warmUp: Boolean, onQuit: 
             fontSize = 14.sp,
             textAlign = TextAlign.Center,
             color = c.onSurfaceVariant,
-            modifier = Modifier.padding(top = 4.dp).height(60.dp),
+            modifier = Modifier.padding(top = 4.dp).heightIn(min = 60.dp),
         )
 
-        Box(Modifier.size(150.dp), contentAlignment = Alignment.Center) {
-            val track = c.surfaceVariant
+        Box(
+            Modifier
+                .size(170.dp)
+                .graphicsLayer { scaleX = pop.value; scaleY = pop.value }
+                .semantics { contentDescription = "$seconds seconds left" },
+            contentAlignment = Alignment.Center,
+        ) {
             Canvas(Modifier.fillMaxSize()) {
-                val stroke = 12.dp.toPx()
-                val inset = stroke / 2
-                val arcSize = Size(size.width - stroke, size.height - stroke)
-                drawArc(track, 0f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(stroke))
-                drawArc(phaseColor, -90f, 360f * segProgress, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
+                val stroke = 14.dp.toPx()
+                val inset = 12.dp.toPx()
+                val arcSize = Size(size.width - 2 * inset, size.height - 2 * inset)
+                val topLeft = Offset(inset, inset)
+                drawArc(phaseColor.copy(alpha = 0.15f), 0f, 360f, false, topLeft, arcSize, style = Stroke(stroke))
+                drawArc(phaseColor.copy(alpha = 0.18f), -90f, 360f * segProgress, false, topLeft, arcSize, style = Stroke(stroke + 8.dp.toPx(), cap = StrokeCap.Round))
+                drawArc(phaseColor, -90f, 360f * segProgress, false, topLeft, arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
+                if (segProgress > 0.01f) {
+                    val ang = Math.toRadians((-90f + 360f * segProgress).toDouble())
+                    val r = arcSize.width / 2f
+                    val dot = Offset(size.width / 2f + r * kotlin.math.cos(ang).toFloat(), size.height / 2f + r * kotlin.math.sin(ang).toFloat())
+                    drawCircle(onPhase, 4.dp.toPx(), dot)
+                }
             }
-            Text(seconds.toString(), fontSize = 52.sp, fontWeight = FontWeight.ExtraBold)
+            Text(
+                seconds.toString(),
+                fontSize = 56.sp,
+                fontWeight = FontWeight.ExtraBold,
+                style = TextStyle(fontFeatureSettings = "tnum", fontSize = 56.sp, fontWeight = FontWeight.ExtraBold),
+                modifier = Modifier.graphicsLayer { scaleX = digitScale; scaleY = digitScale },
+            )
         }
 
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(
                 onClick = { paused = !paused },
-                modifier = Modifier.weight(1f).height(52.dp),
-                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.weight(1f).height(56.dp),
+                shape = RoundedCornerShape(16.dp),
             ) { Text(if (paused) "Resume" else "Pause", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
             OutlinedButton(
                 onClick = { advance() },
-                modifier = Modifier.weight(1f).height(52.dp),
-                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.weight(1f).height(56.dp),
+                shape = RoundedCornerShape(16.dp),
             ) { Text("Skip", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
         }
         Spacer(Modifier.height(8.dp))

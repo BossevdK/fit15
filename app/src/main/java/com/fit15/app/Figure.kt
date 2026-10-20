@@ -7,6 +7,22 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -103,56 +119,92 @@ private fun solve(p: Pose): Skeleton {
     )
 }
 
-private fun DrawScope.drawFigure(
-    pose: Pose, prop: Prop, front: Boolean, anchorX: Float, body: Color, ground: Color,
-) {
-    val scale = min(size.width / WORLD_W, size.height / WORLD_H)
-    val ox = (size.width - WORLD_W * scale) / 2f
-    val oy = (size.height - WORLD_H * scale) / 2f
-    fun pt(o: Offset) = Offset(ox + o.x * scale, oy + (WORLD_H - o.y) * scale)
-    val w = 2.6f * scale
+class FigureColors(
+    val skin: Color, val shirt: Color, val shorts: Color, val shoe: Color, val hair: Color, val ground: Color,
+)
 
-    // vloer
-    drawLine(ground, pt(Offset(4f, FLOOR - 1.3f)), pt(Offset(96f, FLOOR - 1.3f)), strokeWidth = 0.8f * scale, cap = StrokeCap.Round)
+@Composable
+fun figureColors(): FigureColors {
+    val c = MaterialTheme.colorScheme
+    val dark = isSystemInDarkTheme()
+    return FigureColors(
+        skin = Color(0xFFE8B48C),
+        shirt = c.primary,
+        shorts = if (dark) Color(0xFF7C8CB3) else Color(0xFF34425E),
+        shoe = c.onSurface,
+        hair = if (dark) Color(0xFF1E140F) else Color(0xFF3B2A20),
+        ground = c.onSurface.copy(alpha = 0.25f),
+    )
+}
+
+private val Wood = Color(0xFFC8955A)
+private val WoodDark = Color(0xFF9C6E3E)
+
+private fun DrawScope.drawFigure(pose: Pose, prop: Prop, front: Boolean, anchorX: Float, colors: FigureColors) {
+    val u = min(size.width / WORLD_W, size.height / WORLD_H)
+    val ox = (size.width - WORLD_W * u) / 2f
+    val oy = (size.height - WORLD_H * u) / 2f
+    fun pt(o: Offset) = Offset(ox + o.x * u, oy + (WORLD_H - o.y) * u)
+    fun line(a: Offset, b: Offset, c: Color, wd: Float) = drawLine(c, pt(a), pt(b), strokeWidth = wd * u, cap = StrokeCap.Round)
+    val floorY = FLOOR - 1.3f
+
+    // vloer: een dunne mat
+    drawRoundRect(
+        colors.ground.copy(alpha = 0.55f), pt(Offset(4f, floorY + 0.2f)), Size(92f * u, 1.6f * u), CornerRadius(0.8f * u),
+    )
 
     // attributen (muur / stoel)
     when (prop) {
         Prop.WALL -> {
-            val x = anchorX - 4.6f
-            drawLine(ground, pt(Offset(x, FLOOR - 1.3f)), pt(Offset(x, 56f)), strokeWidth = 1.6f * scale, cap = StrokeCap.Round)
+            val x = anchorX - 4.8f
+            drawRect(colors.ground.copy(alpha = 0.3f), pt(Offset(x - 3f, 57f)), Size(3f * u, (57f - floorY) * u))
+            for (y in listOf(14f, 26f, 38f, 50f)) line(Offset(x - 3f, y), Offset(x - 0.3f, y + 3f), colors.ground.copy(alpha = 0.5f), 0.5f)
         }
-        Prop.CHAIR -> {
-            val l = anchorX - 11.5f
-            val r = anchorX - 1.5f
-            val top = FLOOR - 1.3f + 10f
-            drawLine(ground, pt(Offset(l, top)), pt(Offset(r, top)), strokeWidth = 1.8f * scale, cap = StrokeCap.Round)
-            drawLine(ground, pt(Offset(l + 0.5f, top)), pt(Offset(l + 0.5f, FLOOR - 1.3f)), strokeWidth = 1.2f * scale, cap = StrokeCap.Round)
-            drawLine(ground, pt(Offset(r - 0.5f, top)), pt(Offset(r - 0.5f, FLOOR - 1.3f)), strokeWidth = 1.2f * scale, cap = StrokeCap.Round)
-        }
-        Prop.CHAIR_FEET -> {
-            val l = anchorX - 31f
-            val r = anchorX - 19f
-            val top = FLOOR - 1.3f + 10f
-            drawLine(ground, pt(Offset(l, top)), pt(Offset(r, top)), strokeWidth = 1.8f * scale, cap = StrokeCap.Round)
-            drawLine(ground, pt(Offset(l + 0.5f, top)), pt(Offset(l + 0.5f, FLOOR - 1.3f)), strokeWidth = 1.2f * scale, cap = StrokeCap.Round)
-            drawLine(ground, pt(Offset(r - 0.5f, top)), pt(Offset(r - 0.5f, FLOOR - 1.3f)), strokeWidth = 1.2f * scale, cap = StrokeCap.Round)
+        Prop.CHAIR, Prop.CHAIR_FEET -> {
+            val l = if (prop == Prop.CHAIR) anchorX - 11.5f else anchorX - 31f
+            val r = if (prop == Prop.CHAIR) anchorX - 1.5f else anchorX - 19f
+            val top = floorY + 10f
+            line(Offset(l + 0.6f, top), Offset(l + 0.6f, floorY), WoodDark, 1.4f)
+            line(Offset(r - 0.6f, top), Offset(r - 0.6f, floorY), WoodDark, 1.4f)
+            line(Offset(l, top), Offset(r, top), Wood, 2.4f)
         }
         Prop.NONE -> Unit
     }
 
     val s = solve(pose)
-    val far = if (front) body else body.copy(alpha = 0.42f)
-    fun seg(a: Offset, b: Offset, c: Color) = drawLine(c, pt(a), pt(b), strokeWidth = w, cap = StrokeCap.Round)
 
-    // achterste ledematen
-    seg(s.neck, s.elbowB, far); seg(s.elbowB, s.handB, far)
-    seg(s.hip, s.kneeB, far); seg(s.kneeB, s.ankleB, far); seg(s.ankleB, s.toeB, far)
-    // romp en hoofd
-    seg(s.hip, s.neck, body)
-    drawCircle(body, radius = HEAD_R * scale, center = pt(s.headC), style = Stroke(width = w * 0.85f))
-    // voorste ledematen
-    seg(s.neck, s.elbowA, body); seg(s.elbowA, s.handA, body)
-    seg(s.hip, s.kneeA, body); seg(s.kneeA, s.ankleA, body); seg(s.ankleA, s.toeA, body)
+    // schaduw onder de figuur (kleiner als je springt)
+    val xs = listOf(s.hip.x, s.handA.x, s.handB.x, s.toeA.x, s.toeB.x, s.headC.x, s.kneeA.x)
+    val cx = (xs.min() + xs.max()) / 2f
+    val rx = (xs.max() - xs.min()) / 2f + 3f
+    val shadow = (0.16f - pose.lift * 0.012f).coerceAtLeast(0.04f)
+    drawOval(Color.Black.copy(alpha = shadow), pt(Offset(cx - rx, floorY + 0.4f)), Size(2 * rx * u, 2.4f * u))
+
+    fun far(c: Color) = if (front) c else lerp(c, Color.Black, 0.28f)
+    fun arm(elbow: Offset, hand: Offset, behind: Boolean) {
+        line(elbow, hand, if (behind) far(colors.skin) else colors.skin, 2.3f)
+        line(s.neck, elbow, if (behind) far(colors.shirt) else colors.shirt, 3.2f)
+    }
+    fun leg(knee: Offset, ankle: Offset, toe: Offset, behind: Boolean) {
+        line(knee, ankle, if (behind) far(colors.skin) else colors.skin, 2.7f)
+        line(ankle, toe, if (behind) far(colors.shoe) else colors.shoe, 2.5f)
+        line(s.hip, knee, if (behind) far(colors.shorts) else colors.shorts, 4.0f)
+    }
+
+    // achterste ledematen, romp en hoofd, voorste ledematen
+    arm(s.elbowB, s.handB, true)
+    leg(s.kneeB, s.ankleB, s.toeB, true)
+    line(s.hip, s.neck, colors.shirt, 5.0f)
+    line(s.hip, s.hip + (s.neck - s.hip) * 0.32f, colors.shorts, 5.2f)
+    line(s.neck, s.headC, colors.skin, 1.8f)
+    val hc = pt(s.headC)
+    val hr = HEAD_R * u
+    drawCircle(colors.skin, hr, hc)
+    val hairStart = if (front) 180f else 80f
+    val hairSweep = if (front) 180f else 200f
+    drawArc(colors.hair, hairStart, hairSweep, true, Offset(hc.x - hr, hc.y - hr), Size(2 * hr, 2 * hr))
+    arm(s.elbowA, s.handA, false)
+    leg(s.kneeA, s.ankleA, s.toeA, false)
 }
 
 /** Speelt een oefening af: gaat zacht heen en weer tussen twee houdingen. */
@@ -160,8 +212,7 @@ private fun DrawScope.drawFigure(
 fun ExerciseFigure(
     exercise: Exercise,
     modifier: Modifier,
-    body: Color,
-    ground: Color,
+    colors: FigureColors,
     playing: Boolean = true,
 ) {
     val t by rememberInfiniteTransition(label = "fig").animateFloat(
@@ -172,6 +223,21 @@ fun ExerciseFigure(
     // zachte in-en-uit beweging
     val e = if (playing) (0.5f - 0.5f * cos(Math.PI * t).toFloat()) else 0f
     Canvas(modifier) {
-        drawFigure(lerpPose(exercise.a, exercise.b, e), exercise.prop, exercise.front, exercise.a.hx, body, ground)
+        drawFigure(lerpPose(exercise.a, exercise.b, e), exercise.prop, exercise.front, exercise.a.hx, colors)
+    }
+}
+
+/** De figuur op een zachte kaart met een kleurverloop. */
+@Composable
+fun FigureStage(ex: Exercise, modifier: Modifier, playing: Boolean = true) {
+    val c = MaterialTheme.colorScheme
+    Box(
+        modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(Brush.verticalGradient(listOf(lerp(c.surfaceVariant, c.primaryContainer, 0.35f), c.surfaceVariant)))
+            .alpha(if (playing) 1f else 0.75f),
+        contentAlignment = Alignment.Center,
+    ) {
+        ExerciseFigure(ex, Modifier.fillMaxSize().padding(6.dp), figureColors(), playing)
     }
 }
