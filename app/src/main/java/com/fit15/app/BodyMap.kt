@@ -1,6 +1,7 @@
 package com.fit15.app
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -54,8 +55,8 @@ fun MusclesScreen(history: List<Store.Entry>, onBack: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item {
-            TextButton(onClick = onBack) { Text("‹ Back", fontSize = 16.sp) }
-            Text("Your muscles", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
+            Text("‹ Back", style = Type.row, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clickable(onClick = onBack).padding(vertical = 14.dp))
+            Text("Your muscles", style = Type.title)
             Text(
                 "Last 7 days. The more sets, the brighter the colour.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

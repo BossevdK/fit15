@@ -35,34 +35,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@Composable
-fun Fit15Theme(content: @Composable () -> Unit) {
-    val scheme = if (isSystemInDarkTheme()) {
-        darkColorScheme(
-            primary = Color(0xFFFF8A5C), onPrimary = Color(0xFF2B1000),
-            primaryContainer = Color(0xFF4A2A1C), onPrimaryContainer = Color(0xFFFFDBCB),
-            tertiary = Color(0xFF4CC4B0), onTertiary = Color(0xFF00201B),
-            background = Color(0xFF14110F), onBackground = Color(0xFFEDE4DC),
-            surface = Color(0xFF1E1A17), onSurface = Color(0xFFEDE4DC),
-            surfaceVariant = Color(0xFF2A2420), onSurfaceVariant = Color(0xFFCDBFB4),
-            secondaryContainer = Color(0xFF4A2A1C), onSecondaryContainer = Color(0xFFFFDBCB),
-            outline = Color(0xFF8C7F75), outlineVariant = Color(0xFF3A322D),
-        )
-    } else {
-        lightColorScheme(
-            primary = Color(0xFFD63D00), onPrimary = Color.White,
-            primaryContainer = Color(0xFFFFDBCB), onPrimaryContainer = Color(0xFF3B1300),
-            tertiary = Color(0xFF14786A), onTertiary = Color.White,
-            background = Color(0xFFFFF8F3), onBackground = Color(0xFF1F1612),
-            surface = Color.White, onSurface = Color(0xFF1F1612),
-            surfaceVariant = Color(0xFFF7ECE4), onSurfaceVariant = Color(0xFF65544A),
-            secondaryContainer = Color(0xFFFFDBCB), onSecondaryContainer = Color(0xFF3B1300),
-            outline = Color(0xFF8A766B), outlineVariant = Color(0xFFEBDDD2),
-        )
-    }
-    MaterialTheme(colorScheme = scheme, content = content)
-}
-
 sealed interface Screen {
     data object Home : Screen
     data object Muscles : Screen

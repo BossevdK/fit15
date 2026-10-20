@@ -147,23 +147,23 @@ fun PlayScreen(workout: Workout, intensity: Intensity, warmUp: Boolean, onQuit: 
     val dark = isSystemInDarkTheme()
     // elke fase heeft een eigen kleurenpaar met genoeg contrast, in licht en donker
     val phaseColor = when (seg.kind) {
-        Kind.WORK -> if (dark) Color(0xFFFF8A5C) else Color(0xFFD63D00)
+        Kind.WORK -> Signal
         Kind.REST -> if (dark) Color(0xFF4CC4B0) else Color(0xFF14786A)
         Kind.WARM -> if (dark) Color(0xFFF2B84B) else Color(0xFF8F6100)
         Kind.READY -> if (dark) Color(0xFFCDBFB4) else Color(0xFF65544A)
     }
     val onPhase = when {
+        seg.kind == Kind.WORK -> Ink
         !dark -> Color.White
         seg.kind == Kind.READY -> Color(0xFF1A1210)
-        seg.kind == Kind.WORK -> Color(0xFF2B1000)
         seg.kind == Kind.REST -> Color(0xFF00201B)
         else -> Color(0xFF2A1D00)
     }
     val phaseLabel = when (seg.kind) {
-        Kind.WORK -> "WORK"
-        Kind.REST -> "REST"
-        Kind.WARM -> "WARM-UP"
-        Kind.READY -> "GET READY"
+        Kind.WORK -> "Work"
+        Kind.REST -> "Rest"
+        Kind.WARM -> "Warm-up"
+        Kind.READY -> "Get ready"
     }
     val seconds = ceil(remainingMs / 1000.0).toInt().coerceAtLeast(0)
     val segProgress = (remainingMs.toFloat() / (seg.sec * 1000f)).coerceIn(0f, 1f)
@@ -223,7 +223,7 @@ fun PlayScreen(workout: Workout, intensity: Intensity, warmUp: Boolean, onQuit: 
         if (seg.kind == Kind.REST || seg.kind == Kind.READY) {
             Text("Next up", fontSize = 13.sp, color = c.onSurfaceVariant)
         }
-        Text(seg.ex.name, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
+        Text(seg.ex.name, style = Type.title, textAlign = TextAlign.Center)
         Text(
             if (seg.kind == Kind.WORK || seg.kind == Kind.WARM) seg.ex.tip else seg.ex.how,
             fontSize = 14.sp,
@@ -256,9 +256,7 @@ fun PlayScreen(workout: Workout, intensity: Intensity, warmUp: Boolean, onQuit: 
             }
             Text(
                 seconds.toString(),
-                fontSize = 56.sp,
-                fontWeight = FontWeight.ExtraBold,
-                style = TextStyle(fontFeatureSettings = "tnum", fontSize = 56.sp, fontWeight = FontWeight.ExtraBold),
+                style = Type.timer,
                 modifier = Modifier.graphicsLayer { scaleX = digitScale; scaleY = digitScale },
             )
         }

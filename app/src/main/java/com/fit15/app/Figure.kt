@@ -75,14 +75,20 @@ private fun dir(deg: Float): Offset {
 
 private fun lerp(a: Float, b: Float, t: Float) = a + (b - a) * t
 
+/** Draait langs de kortste weg (350 graden naar 10 graden is 20 graden draaien, niet 340), zodat ledematen niet door het lichaam zwaaien. */
+private fun lerpAngle(a: Float, b: Float, t: Float): Float {
+    val d = ((b - a) % 360f + 540f) % 360f - 180f
+    return a + d * t
+}
+
 fun lerpPose(a: Pose, b: Pose, t: Float) = Pose(
-    hx = lerp(a.hx, b.hx, t), torso = lerp(a.torso, b.torso, t),
-    uaA = lerp(a.uaA, b.uaA, t), faA = lerp(a.faA, b.faA, t),
-    uaB = lerp(a.uaB, b.uaB, t), faB = lerp(a.faB, b.faB, t),
-    thA = lerp(a.thA, b.thA, t), shA = lerp(a.shA, b.shA, t),
-    thB = lerp(a.thB, b.thB, t), shB = lerp(a.shB, b.shB, t),
-    toeA = lerp(a.toeA, b.toeA, t), toeB = lerp(a.toeB, b.toeB, t),
-    headDir = lerp(a.headDir ?: a.torso, b.headDir ?: b.torso, t),
+    hx = lerp(a.hx, b.hx, t), torso = lerpAngle(a.torso, b.torso, t),
+    uaA = lerpAngle(a.uaA, b.uaA, t), faA = lerpAngle(a.faA, b.faA, t),
+    uaB = lerpAngle(a.uaB, b.uaB, t), faB = lerpAngle(a.faB, b.faB, t),
+    thA = lerpAngle(a.thA, b.thA, t), shA = lerpAngle(a.shA, b.shA, t),
+    thB = lerpAngle(a.thB, b.thB, t), shB = lerpAngle(a.shB, b.shB, t),
+    toeA = lerpAngle(a.toeA, b.toeA, t), toeB = lerpAngle(a.toeB, b.toeB, t),
+    headDir = lerpAngle(a.headDir ?: a.torso, b.headDir ?: b.torso, t),
     lift = lerp(a.lift, b.lift, t),
 )
 

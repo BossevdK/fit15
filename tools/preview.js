@@ -49,7 +49,8 @@ function solve(p){
   return {head:S(head),neck:S(neck),hip:S(hip),eA:S(eA),hA:S(hA),eB:S(eB),hB:S(hB),kA:S(kA),aA:S(aA),tA:S(tA),kB:S(kB),aB:S(aB),tB:S(tB)};
 }
 const lerp=(a,b,t)=>a+(b-a)*t;
-function lp(a,b,t){const o={};for(const k in a)o[k]=lerp(a[k],b[k]??a[k],t);o.headDir=lerp(a.headDir??a.torso,b.headDir??b.torso,t);return o}
+const la=(a,b,t)=>a+(((b-a)%360+540)%360-180)*t;
+function lp(a,b,t){const o={};for(const k in a){o[k]=(k=="hx"||k=="lift")?lerp(a[k],b[k]??a[k],t):la(a[k],b[k]??a[k],t)}o.headDir=la(a.headDir??a.torso,b.headDir??b.torso,t);return o}
 function draw(c,e,t){
   const W=300,H=180,s=3;c.clearRect(0,0,W,H);
   const P=q=>[q[0]*s,(60-q[1])*s];
@@ -69,7 +70,7 @@ const g=document.getElementById('g');
 for(const e of EX){
   const div=document.createElement('div');div.innerHTML='<b>'+e.name+'</b><br>';
   const cs=[];
-  for(const t of [0,1]){const cv=document.createElement('canvas');cv.width=300;cv.height=180;cv.style.border='1px solid #ddd';div.appendChild(cv);draw(cv.getContext('2d'),e,t)}
+  for(const t of [0,0.5,1]){const cv=document.createElement('canvas');cv.width=300;cv.height=180;cv.style.border='1px solid #ddd';div.appendChild(cv);draw(cv.getContext('2d'),e,t)}
   g.appendChild(div);
 }
 </script>`);
