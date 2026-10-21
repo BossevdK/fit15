@@ -71,6 +71,46 @@ class Store(context: Context) {
             prefs.edit().putInt("weeklyGoal", value.coerceIn(1, 7)).apply()
         }
 
+    var onboarded: Boolean
+        get() = prefs.getBoolean("onboarded", false)
+        set(value) {
+            prefs.edit().putBoolean("onboarded", value).apply()
+        }
+
+    var goal: Goal
+        get() = runCatching { Goal.valueOf(prefs.getString("goal", null) ?: "MUSCLE") }.getOrDefault(Goal.MUSCLE)
+        set(value) {
+            prefs.edit().putString("goal", value.name).apply()
+        }
+
+    var experience: Experience
+        get() = runCatching { Experience.valueOf(prefs.getString("experience", null) ?: "SOME") }.getOrDefault(Experience.SOME)
+        set(value) {
+            prefs.edit().putString("experience", value.name).apply()
+        }
+
+    var days: Int
+        get() = prefs.getInt("days", 3)
+        set(value) {
+            prefs.edit().putInt("days", value.coerceIn(2, 5)).apply()
+        }
+
+    /** Nieuwe gebruikers krijgen de start-vragen. Wie al getraind heeft (oudere versie) slaat ze over. */
+    fun needsSetup(): Boolean = !onboarded && history().isEmpty() && programDone == 0
+
+    /** Zet de antwoorden om in instellingen en begint het programma op het juiste punt. */
+    fun applySetup(goal: Goal, experience: Experience, days: Int) {
+        this.goal = goal
+        this.experience = experience
+        this.days = days
+        weeklyGoal = days
+        level = experience.level
+        Program.goal = goal
+        Program.days = days
+        programDone = experience.startWeek * Program.sessionsPerWeek
+        onboarded = true
+    }
+
     fun history(): List<Entry> =
         (prefs.getString("history", "") ?: "").split(";").mapNotNull { s ->
             val p = s.split("|")

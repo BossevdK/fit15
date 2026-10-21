@@ -31,6 +31,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val store = Store(applicationContext)
+        Program.goal = store.goal
+        Program.days = store.days
         setContent { Fit15Theme { App(store) } }
     }
 }
@@ -38,6 +40,7 @@ class MainActivity : ComponentActivity() {
 sealed interface Screen {
     data object Home : Screen
     data object Muscles : Screen
+    data object Onboarding : Screen
     data object Settings : Screen
     data object Library : Screen
     data class Detail(val workout: Workout, val fromProgram: Boolean) : Screen
@@ -48,7 +51,7 @@ sealed interface Screen {
 @Composable
 fun App(store: Store) {
     val ctx = LocalContext.current
-    var screen by remember { mutableStateOf<Screen>(Screen.Home) }
+    var screen by remember { mutableStateOf<Screen>(if (store.needsSetup()) Screen.Onboarding else Screen.Home) }
     var tab by remember { mutableStateOf(Tab.TODAY) }
     var level by remember { mutableStateOf(store.level) }
     var warmUp by remember { mutableStateOf(store.warmUp) }
@@ -78,9 +81,19 @@ fun App(store: Store) {
                     onSettings = { screen = Screen.Settings },
                     onLibrary = { screen = Screen.Library },
                 )
+                Screen.Onboarding -> OnboardingScreen(
+                    onFinish = { goal, exp, days ->
+                        store.applySetup(goal, exp, days)
+                        programDone = store.programDone
+                        level = store.level
+                        tab = Tab.TODAY
+                        screen = Screen.Home
+                    },
+                    onSkip = { store.onboarded = true; screen = Screen.Home },
+                )
                 Screen.Settings -> {
                     BackHandler { screen = Screen.Home }
-                    SettingsScreen(store) { screen = Screen.Home }
+                    SettingsScreen(store, onBack = { screen = Screen.Home }, onRedoSetup = { screen = Screen.Onboarding })
                 }
                 Screen.Library -> {
                     BackHandler { screen = Screen.Home }
@@ -88,7 +101,11 @@ fun App(store: Store) {
                 }
                 Screen.Muscles -> {
                     BackHandler { screen = Screen.Home }
-                    MusclesScreen(history = remember(refresh) { store.history() }, onBack = { screen = Screen.Home })
+                    MusclesScreen(
+                        history = remember(refresh) { store.history() },
+                        onBack = { screen = Screen.Home },
+                        onOpenWorkout = { screen = Screen.Detail(it, false) },
+                    )
                 }
                 is Screen.Detail -> {
                     BackHandler { screen = Screen.Home }

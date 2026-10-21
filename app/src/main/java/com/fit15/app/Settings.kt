@@ -44,7 +44,7 @@ private fun SwitchRow(title: String, subtitle: String, checked: Boolean, onChang
 }
 
 @Composable
-fun SettingsScreen(store: Store, onBack: () -> Unit) {
+fun SettingsScreen(store: Store, onBack: () -> Unit, onRedoSetup: () -> Unit) {
     val ctx = LocalContext.current
     var sound by remember { mutableStateOf(store.soundOn) }
     var voice by remember { mutableStateOf(store.voiceOn) }
@@ -73,6 +73,15 @@ fun SettingsScreen(store: Store, onBack: () -> Unit) {
             SwitchRow("Beeps", "A tone at the last three seconds and at every change", sound) { sound = it; store.soundOn = it }
             SwitchRow("Voice", "Says the name of the next exercise", voice) { voice = it; store.voiceOn = it }
             SwitchRow("Vibration", "A buzz when the exercise changes", vibrate) { vibrate = it; store.vibrateOn = it }
+            Column(Modifier.fillMaxWidth().clickable(onClick = onRedoSetup).padding(vertical = 12.dp)) {
+                Text("Redo the start questions", style = Type.row)
+                Text(
+                    "Change your goal, level and days. This restarts your 4-week program.",
+                    style = Type.small,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Rule()
             Text(
                 "Fit15 ${currentVersion(ctx)}. Free, no account, no ads. Updates come from GitHub.",
                 style = Type.small,

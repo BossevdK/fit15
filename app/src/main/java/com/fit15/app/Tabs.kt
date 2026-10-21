@@ -285,7 +285,6 @@ private fun milestones(history: List<Store.Entry>, best: Int, programDone: Int):
         count("3-day streak", best, 3),
         count("10 workouts", n, 10),
         count("7-day streak", best, 7),
-        count("Finish week 1 of the program", programDone, 3),
         count("25 workouts", n, 25),
         count("Finish the 4-week program", programDone, Program.total),
     )

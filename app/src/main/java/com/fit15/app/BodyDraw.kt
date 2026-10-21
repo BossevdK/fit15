@@ -2,6 +2,8 @@ package com.fit15.app
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -90,7 +92,20 @@ private val BACK = listOf(
     Part(Muscle.TRICEPS, "M75 56 C79 59 83 59 85.2 59 C86.2 66 87 72 87.2 77 C85 80 82 80 80.3 78 C79 72 77 64 75 56 Z"),
 )
 
-private fun DrawScope.drawBody(front: Boolean, sets: Map<Muscle, Float>, neutral: Color, ink: Color, seam: Color) {
+/** Welke spier zit er op dit punt (in pixels van de tekening)? Kiest de kleinste vorm waar het punt in valt. */
+fun hitMuscle(front: Boolean, x: Float, y: Float, w: Float, h: Float): Muscle? {
+    val s = min(w / BW, h / BH)
+    var px = (x - (w - BW * s) / 2f) / s
+    val py = (y - (h - BH * s) / 2f) / s
+    if (px < 50f) px = 100f - px // de linkerkant is een spiegeling van de rechterkant
+    val at = Offset(px, py)
+    return (if (front) FRONT else BACK)
+        .filter { it.b.contains(at) }
+        .minByOrNull { it.b.width * it.b.height }
+        ?.m
+}
+
+private fun DrawScope.drawBody(front: Boolean, sets: Map<Muscle, Float>, neutral: Color, ink: Color, seam: Color, selected: Muscle?) {
     val s = min(size.width / BW, size.height / BH)
     withTransform({
         translate((size.width - BW * s) / 2f, (size.height - BH * s) / 2f)
@@ -118,6 +133,11 @@ private fun DrawScope.drawBody(front: Boolean, sets: Map<Muscle, Float>, neutral
                             drawPath(p.path, seam, style = Stroke(0.5f))
                         }
                     }
+                    if (selected != null) {
+                        for (p in if (front) FRONT else BACK) {
+                            if (p.m == selected) drawPath(p.path, Signal, style = Stroke(1.4f, join = StrokeJoin.Round))
+                        }
+                    }
                     val fine = ink.copy(alpha = 0.16f)
                     if (front) {
                         for (y in listOf(73f, 82f, 91f)) drawLine(fine, Offset(51.5f, y), Offset(60.5f, y), 0.5f)
@@ -133,7 +153,13 @@ private fun DrawScope.drawBody(front: Boolean, sets: Map<Muscle, Float>, neutral
 }
 
 @Composable
-fun BodyMap(sets: Map<Muscle, Float>, height: Dp, modifier: Modifier = Modifier) {
+fun BodyMap(
+    sets: Map<Muscle, Float>,
+    height: Dp,
+    modifier: Modifier = Modifier,
+    selected: Muscle? = null,
+    onTap: ((Muscle?) -> Unit)? = null,
+) {
     val c = MaterialTheme.colorScheme
     val neutral = lerp(c.surface, c.onSurface, 0.14f) // dichtbij maar niet doorzichtig
     val summary = muscleSummary(sets)
@@ -144,8 +170,17 @@ fun BodyMap(sets: Map<Muscle, Float>, height: Dp, modifier: Modifier = Modifier)
     ) {
         for (front in listOf(true, false)) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Canvas(Modifier.height(height).width(height * (BW / BH))) {
-                    drawBody(front, sets, neutral, c.onSurface, c.surface.copy(alpha = 0.7f))
+                val tapModifier = if (onTap != null) {
+                    Modifier.pointerInput(front) {
+                        detectTapGestures { at ->
+                            onTap(hitMuscle(front, at.x, at.y, size.width.toFloat(), size.height.toFloat()))
+                        }
+                    }
+                } else {
+                    Modifier
+                }
+                Canvas(Modifier.height(height).width(height * (BW / BH)).then(tapModifier)) {
+                    drawBody(front, sets, neutral, c.onSurface, c.surface.copy(alpha = 0.7f), selected)
                 }
                 Text(if (front) "Front" else "Back", fontSize = 12.sp, color = c.onSurfaceVariant)
             }

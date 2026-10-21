@@ -467,23 +467,62 @@ object Exercises {
 
 class Week(val title: String, val intensity: Intensity, val sessions: List<String>)
 
-/** 4 weken, 3 trainingen per week, elke week iets zwaarder. */
+enum class Goal(val label: String, val sub: String) {
+    MUSCLE("Build muscle", "Slow, controlled reps and harder variations"),
+    TONE("Lose fat and tone up", "Adds a cardio session to every week"),
+    ACTIVE("Stay active and healthy", "A gentler pace that is easy to keep up"),
+}
+
+enum class Experience(val label: String, val sub: String, val startWeek: Int, val level: Level) {
+    NEW("Just starting", "I rarely train. Start at week 1.", 0, Level.EASY),
+    SOME("Some experience", "I train now and then. Start at week 2.", 1, Level.MEDIUM),
+    PRO("Experienced", "I train regularly. Start at week 3.", 2, Level.HARD),
+}
+
+/** 4 weken, elke week iets zwaarder. Het aantal trainingen per week en de soorten hangen af van je antwoorden. */
 object Program {
     const val NAME = "4-Week Builder"
 
-    val weeks = listOf(
-        Week("Learn the moves", Intensity(30, 30, -1), listOf("full", "legs", "core")),
-        Week("Build", Intensity(40, 20, 0), listOf("upper", "legs", "core")),
-        Week("Push harder", Intensity(45, 15, 0), listOf("full2", "glute", "core2")),
-        Week("Peak week", Intensity(45, 15, 1), listOf("upper", "legs", "full")),
-    )
+    /** Wordt ingesteld bij het opstarten en na de start-vragen. */
+    var goal: Goal = Goal.MUSCLE
+    var days: Int = 3
 
+    val weeks: List<Week> get() = build(goal, days)
     val total: Int get() = weeks.sumOf { it.sessions.size }
+    val sessionsPerWeek: Int get() = weeks[0].sessions.size
+
+    fun build(goal: Goal, days: Int): List<Week> {
+        val base = when (goal) {
+            Goal.MUSCLE -> listOf(
+                Week("Learn the moves", Intensity(30, 30, -1), listOf("full", "legs", "core")),
+                Week("Build", Intensity(40, 20, 0), listOf("upper", "legs", "core")),
+                Week("Push harder", Intensity(45, 15, 0), listOf("full2", "glute", "core2")),
+                Week("Peak week", Intensity(45, 15, 1), listOf("upper", "legs", "full")),
+            )
+            Goal.TONE -> listOf(
+                Week("Learn the moves", Intensity(30, 30, -1), listOf("full", "cardio", "legs")),
+                Week("Build", Intensity(40, 20, 0), listOf("upper", "cardio", "legs")),
+                Week("Push harder", Intensity(45, 15, 0), listOf("full2", "cardio", "glute")),
+                Week("Peak week", Intensity(45, 15, 1), listOf("upper", "cardio", "legs")),
+            )
+            Goal.ACTIVE -> listOf(
+                Week("Learn the moves", Intensity(30, 30, -1), listOf("full", "legs", "core")),
+                Week("Find your pace", Intensity(30, 30, 0), listOf("upper", "legs", "core")),
+                Week("Build a habit", Intensity(40, 20, 0), listOf("full2", "glute", "core2")),
+                Week("Keep going", Intensity(40, 20, 0), listOf("upper", "legs", "full")),
+            )
+        }
+        val extras = when {
+            days >= 5 -> listOf("quickfull", "quickabs")
+            days == 4 -> listOf("quickfull")
+            else -> emptyList()
+        }
+        return base.map { w -> Week(w.title, w.intensity, if (days <= 2) w.sessions.take(2) else w.sessions + extras) }
+    }
 
     class Next(val weekIndex: Int, val sessionIndex: Int, val week: Week, val workout: Workout)
 
     fun next(done: Int): Next? {
-        if (done >= total) return null
         var left = done
         for ((wi, w) in weeks.withIndex()) {
             if (left < w.sessions.size) return Next(wi, left, w, Workouts.byId(w.sessions[left])!!)
